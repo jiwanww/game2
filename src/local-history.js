@@ -1,0 +1,10 @@
+import {Body} from './physics.js';
+const clone=(v,seen=new Map())=>{if(v===null||typeof v!=='object')return v;if(v instanceof Body||v.isObject3D||v.isMaterial||v.isBufferGeometry)return v;if(v.isVector3||v.isEuler||v.isQuaternion)return v.clone();if(seen.has(v))return seen.get(v);if(v instanceof Set)return new Set(v);const o=Array.isArray(v)?[]:{};seen.set(v,o);for(const k of Object.keys(v))o[k]=clone(v[k],seen);return o;};
+const excluded=new Set(['renderer','scene','camera','world','physics','audio','player','ray','agent','bank','preview','arms','handGroups','mapCtx','heldVisual','net','timeline','orbMeshes','orbs','trainingVisuals','keys','effects']);
+export class LocalHistory {
+ constructor(g){this.g=g;this.time=0;this.history=[];this.next=0;}
+ tick(dt){this.time+=dt;if(this.pending){this.pending=false;const h=this.history.filter(h=>h.at<=this.time-5).at(-1);if(h){const g=this.g;for(const p of [...g.projectiles,...g.traps,...g.arrows])if(p.mesh)g.scene.remove(p.mesh);Object.assign(g,clone(h.state));Object.assign(g.bank,clone(h.bank));g.orbs.orbs=clone(h.orbs);g.ultPoints=0;g.ultReady=false;g.cast=null;g.keys={};for(const b of h.bodies){const target=b.ref;for(const [k,v] of Object.entries(b))if(k!=='ref')target[k]=clone(v);target.sync();if(target.mesh){target.mesh.visible=target.active;g.scene.add(target.mesh);}}for(const p of [...g.projectiles,...g.traps,...g.arrows])if(p.mesh)g.scene.add(p.mesh);this.history=[];}}
+  if(this.time<this.next)return;this.next=this.time+.1;const g=this.g,state={};for(const k of Object.keys(g))if(!excluded.has(k)&&typeof g[k]!=='function')state[k]=g[k];const bodies=[...g.physics.solids,...g.physics.movers].map(b=>({ref:b,p:b.p.clone(),h:b.h.clone(),v:b.v.clone(),hp:b.hp,active:b.active,root:b.root,stun:b.stun,slow:b.slow,deaf:b.deaf,dot:b.dot,respawn:b.respawn,shot:b.shot,grounded:b.grounded,held:b.held}));this.history.push({at:this.time,state:clone(state),orbs:clone(g.orbs.orbs),bank:clone({base:g.bank.base,extra:g.bank.extra,timers:g.bank.timers}),bodies});while(this.history[0]?.at<this.time-5.3)this.history.shift();
+ }
+ requestRewind(){this.pending=true;}
+}

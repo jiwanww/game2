@@ -1,0 +1,13 @@
+// Secrets belong in the build environment, never in this project or source archive.
+def afStore = System.getenv('AF_ANDROID_KEYSTORE')
+if (afStore) {
+    android.signingConfigs {
+        abilityRelease {
+            storeFile file(afStore)
+            storePassword System.getenv('AF_ANDROID_STORE_PASSWORD')
+            keyAlias System.getenv('AF_ANDROID_KEY_ALIAS')
+            keyPassword System.getenv('AF_ANDROID_KEY_PASSWORD')
+        }
+    }
+    android.buildTypes.release.signingConfig = android.signingConfigs.abilityRelease
+}

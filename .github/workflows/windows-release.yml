@@ -1,0 +1,35 @@
+name: Windows Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package-and-publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run app:windows
+      - name: Publish the update channel
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseTag = 'latest'
+          gh release view $releaseTag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $releaseTag --title 'Ability Front Beta' --prerelease --notes 'Windows automatic update channel.'
+          }
+          gh release upload $releaseTag dist/windows/AbilityFront-Setup-*.exe dist/windows/*.blockmap dist/windows/beta.yml --clobber

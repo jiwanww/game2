@@ -1,0 +1,7 @@
+import {Simulation} from '../simulation.mjs';
+const sim=new Simulation({options:{map:'squad',rounds:12,unlimited:false},players:new Map([['a',{id:'a',agent:'arc',team:'A',connected:true}],['b',{id:'b',agent:'arc',team:'B',connected:true}]])});
+const map=sim.world.map;
+export function distance(start,end){const blocked=(x,z)=>Math.abs(x)>map.w/2-1||Math.abs(z)>map.d/2-1||sim.physics.solids.some(b=>b.active&&b.p.y-b.h.y<1.8&&b.p.y+b.h.y>0&&Math.abs(x-b.p.x)<b.h.x+.4&&Math.abs(z-b.p.z)<b.h.z+.4);const s=[Math.round(start.x),Math.round(start.z),0],queue=[s],seen=new Set([s[0]+','+s[1]]);for(let i=0;i<queue.length;i++){const [x,z,d]=queue[i];if(Math.hypot(x-end.x,z-end.z)<1.5)return d;for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,nz=z+dz,k=nx+','+nz;if(!seen.has(k)&&!blocked(nx,nz)){seen.add(k);queue.push([nx,nz,d+1]);}}}return Infinity;}
+const paths={attackA:distance({x:0,z:-map.spawn},map.sites[0]),attackB:distance({x:0,z:-map.spawn},map.sites[1]),defendA:distance({x:0,z:map.spawn},map.sites[0]),defendB:distance({x:0,z:map.spawn},map.sites[1]),rotate:distance(map.sites[0],map.sites[1])};
+console.log(JSON.stringify({map:map.name,agentHeight:1.8,width:map.w,depth:map.d,normalized:[map.w/1.8,map.d/1.8],paths,runSeconds:Object.fromEntries(Object.entries(paths).map(([k,d])=>[k,+(d/5.5).toFixed(1)]))}));
+if(Object.values(paths).some(d=>!Number.isFinite(d))||Math.abs(paths.attackA-paths.attackB)>5||Math.abs(paths.defendA-paths.defendB)>5)throw Error('Map path balance failed');
