@@ -1,0 +1,15 @@
+node_modules/
+dist/
+runtime/
+apps/mobile-web/
+apps/desktop-game/
+android/.gradle/
+android/local.properties
+android/**/build/
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+*.pem
+ios/App/App/public/
+ios/App/DerivedData/

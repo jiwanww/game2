@@ -1,0 +1,16 @@
+{
+  "appId": "com.abilityfront.game",
+  "appName": "능력전선",
+  "webDir": "apps/mobile-web",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#0a151e"
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "backgroundColor": "#0a151e"
+  }
+}
