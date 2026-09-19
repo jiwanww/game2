@@ -1,6 +1,7 @@
 import {ProfileStore,unlockedAgents,rewardCount} from './profile.js';
 import {profileScreen} from './profile-ui.js';
 import {nativeMobile,savedServer,serverOrigin} from './platform.js';
+import {makeInviteCode,readInviteCode} from './invite-code.js';
 import {DungeonEngine} from './dungeon-engine.js';
 import {dungeonMenu,dungeonLobby,receiveDungeon,dungeonHud,dungeonOverlay,dungeonFrame} from './dungeon-client.js';
 import {drawSouls} from './souls.js';
@@ -12,7 +13,7 @@ import {Physics,Body,V,ChargeBank} from './physics.js';
 import {Arena,MAPS} from './maps.js';
 import {World,humanoid,mat} from './world.js';
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export function installClient(game){try{game.profile=new ProfileStore();new Lobby(game).home();}catch(e){game.mode='home';$('#ui').innerHTML='<main class="lan-shell"><h1>요원 기록 확인 필요</h1><p>'+esc(e.message)+'</p><p>앱 데이터를 삭제하지 말고 저장 공간을 확인하세요.</p></main>';}}
+export function installClient(game){try{game.profile=new ProfileStore();const lobby=new Lobby(game);game.exitTraining=()=>lobby.home();lobby.home();}catch(e){game.mode='home';$('#ui').innerHTML='<main class="lan-shell"><h1>요원 기록 확인 필요</h1><p>'+esc(e.message)+'</p><p>앱 데이터를 삭제하지 말고 저장 공간을 확인하세요.</p></main>';}}
 class Lobby {
  constructor(g){this.g=g;this.base=savedServer();this.room=null;this.identity=null;this.config={map:'duel',rounds:12,unlimited:false};this.name='';this.selection='spidey';this.network=null;this.info=null;this.stream=null;}
  shell(html){this.g.mode='home';$('#ui').innerHTML=`<main class="lan-shell"><div class="lan-top"><b>능력전선 <small>ABILITY FRONT / 0.7.2 BETA</small></b><span>${this.g.touchControls?'모바일 · 터치 조작':'PC · 키보드 + 마우스'}</span></div>${html}<p id="lan-error" role="status"></p></main>`;}
@@ -35,6 +36,44 @@ class Lobby {
  selectAgent(me){if(!this.g.profile.owns(this.selection))this.selection=unlockedAgents(this.g.profile.read())[0];const selected=AGENTS.find(a=>a.id===this.selection),r=this.room;this.shell(`<section class="lan-config"><div class="eyebrow">AGENT SELECT / ${me.team} TEAM</div><div class="lan-heading"><h1>요원 선택</h1><button id="leave">방 나가기</button></div><div class="lan-agent-list">${AGENTS.map(a=>`<button data-agent="${a.id}" class="${a.id===this.selection?'active':''}" style="--agent:${a.color}" ${me.ready||!this.g.profile.owns(a.id)?'disabled':''}><b>${a.name}</b><span>${this.g.profile.owns(a.id)?a.role:'잠금 · 던전 보상으로 해금'}</span></button>`).join('')}</div><div class="lan-agent-info"><div><h2>${selected.name}</h2><p>${selected.desc}</p><p>${selected.passive}</p></div><div>${selected.skills.map(s=>`<p><b>${s[0]} · ${s[1]}</b><br>${s[2]}</p>`).join('')}</div></div><div class="lan-ready">${r.players.map(p=>`<span>${esc(p.name)} · ${p.ready?'준비 완료':'선택 중'}</span>`).join('')}</div><button id="ready" class="primary" ${me.ready?'disabled':''}>${me.ready?'다른 플레이어를 기다리는 중':selected.name+' 확정 · 준비 완료'}</button></section>`);document.querySelectorAll('[data-agent]').forEach(b=>b.onclick=()=>{if(!this.g.profile.owns(b.dataset.agent))return;this.selection=b.dataset.agent;this.selectAgent(me);});this.bind('#ready',()=>this.api('ready',{agent:this.selection}));this.bind('#leave',()=>this.leave());}
  async leave(){if(this.localDungeon){this.network?.dispose();this.network=null;this.localDungeon=null;this.identity=null;this.room=null;location.reload();return;}try{sessionStorage.removeItem('af-lan-session');}catch{}try{if(this.identity)await this.api('leave');}catch{}this.stream?.close();this.stream=null;this.network?.dispose();this.network=null;this.identity=null;location.href=location.pathname;}
 }
+Lobby.prototype.roomInviteCode=function(){
+ const server=this.info?.addresses?.[0]||this.base;
+ if(!server)throw Error('초대 주소를 찾지 못했습니다. 인터넷 초대를 시작하거나 같은 네트워크에 연결하세요.');
+ return makeInviteCode({server,room:this.room?.code});
+};
+Lobby.prototype.copyInvite=async function(){
+ const code=this.roomInviteCode();
+ try{await navigator.clipboard.writeText(code);}catch{const field=$('#invite-code');field?.focus();field?.select();if(!document.execCommand?.('copy'))throw Error('초대 코드를 자동 복사하지 못했습니다. 코드 칸을 눌러 Ctrl+C로 복사하세요.');}
+ this.error('초대 코드를 복사했습니다. 친구에게 그대로 보내세요.');return code;
+};
+Lobby.prototype.showInvitePanel=function(){
+ const host=this.room?.owner===this.identity?.id,container=$('.lan-config');if(this.room?.stage!=='setup'||!host||!container||$('#invite-code'))return;
+ const panel=document.createElement('section');panel.className='invite-panel';panel.innerHTML='<h2>친구 초대</h2><p>이 코드 하나만 친구에게 보내세요.</p><input id="invite-code" readonly><button id="copy-invite">초대 코드 복사</button>';
+ try{panel.querySelector('#invite-code').value=this.roomInviteCode();}catch(error){panel.remove();throw error;}
+ container.insertBefore(panel,container.children[1]||null);this.bind('#copy-invite',()=>this.copyInvite());
+};
+Lobby.prototype.inviteScreen=function(){
+ this.shell('<section class="lan-home"><div class="eyebrow">QUICK JOIN</div><h1>초대 코드로 참가</h1><p>친구에게 받은 코드를 한 번만 붙여넣으면 해당 방 대기실로 연결됩니다.</p><label>플레이어 이름 <input id="invite-name" maxlength="20" value="'+esc(this.name)+'" placeholder="이름 입력"></label><textarea id="invite-value" rows="5" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="AFI2.로 시작하는 초대 코드 붙여넣기"></textarea><button id="invite-join" class="primary">코드로 참가</button><button id="invite-back">← 모드 선택</button></section>');
+ this.bind('#invite-back',()=>this.home());this.bind('#invite-join',()=>this.joinInvite());
+};
+Lobby.prototype.joinInvite=async function(){
+ const invite=readInviteCode($('#invite-value').value);this.name=$('#invite-name').value;
+ const response=await fetch(invite.server+'/api/info',{signal:AbortSignal.timeout(8000)});if(!response.ok)throw Error('방장 서버에 연결할 수 없습니다. 방장이 앱을 켜 두었는지 확인하세요.');
+ const info=await response.json();if(info.protocol!==2)throw Error('방장과 친구 모두 최신 버전으로 업데이트하세요.');
+ localStorage.setItem('af-game-server',invite.server);sessionStorage.removeItem('af-lan-session');this.base=invite.server;this.identity=null;this.info=info;
+ this.connect(await this.api('join',{name:this.name,code:invite.room}));
+};
+const originalHome=Lobby.prototype.home;
+Lobby.prototype.home=function(){
+ originalHome.call(this);const container=$('.lan-home');if(!container||$('#quick-join'))return;
+ const version=container.querySelector('h1 + p');if(version)version.textContent='베타 0.7.3 · 요원 해금과 간편 초대';
+ const custom=container.querySelector('#custom p');if(custom)custom.innerHTML='초대 코드 하나로 친구와 대전.<br>맵·팀·라운드·스킬 제한을 정하세요.';
+ const note=container.querySelector('p.small');if(note)note.textContent='친구 초대: 방장이 방을 만든 뒤 초대 코드 하나를 보내면, 친구는 앱에서 그대로 붙여넣어 참가합니다. 방장 앱은 켜 두세요.';
+ const host=$('#internet-host');if(host)host.textContent='다른 집 친구와 플레이';
+ const join=document.createElement('button');join.id='quick-join';join.className='primary';join.textContent='초대 코드로 참가';join.onclick=()=>this.inviteScreen();container.append(join);
+};
+const originalRenderRoom=Lobby.prototype.renderRoom;
+Lobby.prototype.renderRoom=function(){originalRenderRoom.call(this);this.showInvitePanel();};
 export class NetMatch {
  constructor(lobby,s){this.baseLights=lobby.g.scene.children.filter(c=>c.isLight);this.savedLightState=this.baseLights.map(light=>({light,intensity:light.intensity,color:light.color.clone()}));this.dungeon=!!s.dungeon;this.lobby=lobby;this.g=lobby.g;this.id=lobby.identity.id;this.keys={};this.actions=[];this.acc=0;this.pending=false;this.paused=true;this.shopOpen=false;this.connectionLost=false;this.lastReceived=performance.now();this.remotes=new Map();this.meshPool=[];this.effectPool=[];this.overlayKey='';this.lastVisual='';this.controller=new AbortController();this.g.net=this;this.g.agent=AGENTS.find(a=>a.id===s.players.find(p=>p.id===this.id).agent);this.g.reset();this.g.mode='play';this.g.arms.visible=true;
  for(const child of [...this.g.scene.children])if(child!==this.g.camera&&!child.isLight)this.g.scene.remove(child);this.g.orbMeshes=[];this.g.soulMeshes=[];this.g.physics=new Physics();this.g.world=new Arena(this.g.scene,this.g.physics,s.options.map);this.g.physics.movers.push(this.g.player);this.g.preview.visible=false;this.spikeMesh=new T.Mesh(new T.CylinderGeometry(.18,.27,.65,6),new T.MeshStandardMaterial({color:'#ffd29a',emissive:'#e88b39',emissiveIntensity:1}));this.g.scene.add(this.spikeMesh);this.spikeMesh.visible=false;this.g.scene.background=new T.Color('#91b8cb');this.g.scene.fog=new T.Fog('#91b8cb',40,110);this.g.hud();$('#ui').insertAdjacentHTML('beforeend','<div id="net-banner"></div><div id="net-overlay"></div><div id="net-scoreboard"></div><div id="killfeed"></div><div id="agent-gauge"></div><div id="spectator-label"></div>');this.bindInput();this.receive(s);}

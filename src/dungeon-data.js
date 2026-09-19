@@ -1,5 +1,5 @@
 // Dungeon-only rules. PvP ability prices, charges and display settings are untouched.
-export const DUNGEON_VERSION='0.7.2-beta.1';
+export const DUNGEON_VERSION='0.7.3-beta.1';
 export const COOLDOWNS={spidey:[8,30,16],arc:[20,20,12],bane:[10,20,14],cap:[6,2,16],thor:[7,24,14],widow:[8,15,10],pigeon:[6,18,10],ant:[12,40,18],hera:[6,10,24],panther:[8,20,14],vision:[22,0,20]};
 const entry=(id,name,description,kind='buff')=>({id,name,description,kind});
 export const BUFFS=[

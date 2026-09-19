@@ -13,7 +13,7 @@ test('server refuses locked agents for custom and co-op, retains isolated player
    const room=app.rooms.get(a.room.code);assert.equal(room.stage,'match');assert.equal(room.sim.actors.size,2);
    assert.equal((await post('profile',{profile:{allUnlocked:true}},a)).status,400);
    assert.equal((await post('input',{keys:[],actions:[]},b)).status,200);
-   const info=await fetch(root+'/api/info').then(r=>r.json());assert.equal(info.protocol,2);assert.equal(info.version,'0.7.2-beta.1');assert.deepEqual(info.addresses,['https://friends.trycloudflare.com']);
+   const info=await fetch(root+'/api/info').then(r=>r.json());assert.equal(info.protocol,2);assert.equal(info.version,'0.7.3-beta.1');assert.deepEqual(info.addresses,['https://friends.trycloudflare.com']);
    app.setPublicOrigin(null);assert(!(await fetch(root+'/api/info').then(r=>r.json())).addresses.includes('https://friends.trycloudflare.com'));
   }finally{app.server.closeAllConnections();await new Promise(r=>app.server.close(r));}
  }

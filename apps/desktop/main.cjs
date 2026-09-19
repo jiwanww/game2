@@ -22,7 +22,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   win.webContents.on('will-navigate',(event,url)=>{if(new URL(url).origin!==origin)event.preventDefault();});
   host=new HostManager(async({onExit,signal})=>{
-   const answer=await dialog.showMessageBox(win,{type:'question',message:'인터넷 초대를 시작할까요?',detail:'게임 서버를 Cloudflare 임시 HTTPS 주소로 공개합니다. 처음에는 공식 연결 도구를 다운로드하고 검증합니다. 주소와 방 코드는 함께 플레이할 친구에게만 보내세요. 방장 앱을 종료하면 연결도 종료됩니다.',buttons:['시작','취소'],defaultId:1,cancelId:1});
+   const answer=await dialog.showMessageBox(win,{type:'question',message:'인터넷 방을 열까요?',detail:'게임 서버를 Cloudflare 임시 HTTPS 주소로 공개합니다. 처음에는 공식 연결 도구를 다운로드하고 검증합니다. 방을 만든 뒤 게임 안의 초대 코드 하나만 친구에게 보내세요. 방장 앱을 종료하면 연결도 종료됩니다.',buttons:['시작','취소'],defaultId:1,cancelId:1});
    if(answer.response!==0)return null;signal.throwIfAborted();
    const {startTunnel}=await import(pathToFileURL(join(game,'internet.mjs')).href);
    return startTunnel({port:8787,signal,runtimeDir:join(app.getPath('userData'),'tunnel'),setPublicOrigin:hosted.setPublicOrigin,onExit:()=>{hosted.setPublicOrigin(null);onExit();}});
@@ -30,7 +30,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   const startInternetHost=async()=>{
    const result=await host.start();if(!result)return {cancelled:true};
    clipboard.writeText(result.url);
-   await dialog.showMessageBox(win,{type:'info',message:'인터넷 초대 주소를 복사했습니다.',detail:result.url+'\n\n사용자설정 또는 협동 던전 방을 만드세요. 친구는 자기 앱에서 [친구 서버 주소 입력]으로 주소를 연결한 뒤, 같은 모드에서 방 코드를 입력하면 됩니다. 두 사람 모두 최신 버전을 사용하세요.'});
+   await dialog.showMessageBox(win,{type:'info',message:'인터넷 방을 열었습니다.',detail:'사용자설정 또는 협동 던전 방을 만든 뒤 [초대 코드 복사]를 누르세요. 친구는 자기 앱에서 [초대 코드로 참가]를 누르고 그 코드만 붙여넣으면 됩니다. 두 사람 모두 최신 버전을 사용하세요.'});
    return {url:result.url};
   };
   updates=new UpdateManager(autoUpdater,{enabled:app.isPackaged&&!!config.updateUrl,feed:config.updateUrl,onInstall:()=>{closing=true;host.stop();server?.close();}});
@@ -40,7 +40,7 @@ if(!app.requestSingleInstanceLock()){app.quit();}else{
   ipcMain.handle('update:status',event=>{checkSender(event);return updates.status;});
   ipcMain.handle('update:install',async event=>{checkSender(event);if(updates.status.state!=='ready')return false;const r=await dialog.showMessageBox(win,{type:'question',message:'업데이트를 적용할까요?',detail:'게임과 이 PC에서 연 멀티 서버가 종료되고 앱이 다시 시작됩니다.',buttons:['적용','취소'],defaultId:1,cancelId:1});return r.response===0&&updates.install();});
   Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'능력전선',submenu:[
-   {label:'인터넷 초대 시작 / 주소 복사',click:()=>startInternetHost().catch(e=>dialog.showErrorBox('인터넷 초대 실패',e.message))},
+   {label:'인터넷 방 열기',click:()=>startInternetHost().catch(e=>dialog.showErrorBox('인터넷 초대 실패',e.message))},
    {label:'업데이트 확인',click:async()=>{const state=await updates.check();if(state.state==='unconfigured')dialog.showMessageBox(win,{message:'배포 주소가 아직 연결되지 않은 테스트 빌드입니다.'});else if(state.state==='current')dialog.showMessageBox(win,{message:'최신 버전입니다.'});else if(state.state==='error')dialog.showErrorBox('업데이트 확인 실패','인터넷 연결과 배포 상태를 확인한 뒤 다시 시도하세요.');}},
    {label:'버전 정보',click:()=>dialog.showMessageBox(win,{message:'능력전선 '+app.getVersion(),detail:'싱글 · 로컬 및 인터넷 멀티 · 요원 해금 로컬 저장'})},{type:'separator'},{role:'quit',label:'종료'}]},
    {label:'화면',submenu:[{role:'togglefullscreen',label:'전체 화면'}]}]));

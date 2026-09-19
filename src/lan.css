@@ -38,4 +38,9 @@
 .unlock-rewards{margin:22px 0;padding:18px;border:1px solid #6a9e94;background:#182e35;}
 .lan-home>button{margin:6px 6px 6px 0;}
 .lan-agent-list button:disabled,.agent-card:disabled{opacity:.42;cursor:not-allowed;}
+.invite-panel{margin:18px 0;padding:16px;border:1px solid #5c978d;background:#152d32;}
+.invite-panel h2{margin:0 0 8px;}.invite-panel p{margin:0 0 12px;color:#c6d8dc;}
+.invite-panel input{width:min(100%,680px);font-family:ui-monospace,Consolas,monospace;font-size:12px;}
+.invite-panel button{margin-left:8px;}
+@media(max-width:700px){.invite-panel button{display:block;margin:10px 0 0;}}
 @media(max-width:900px){.lan-modes:has(.dungeon-mode),.dungeon-rewards{grid-template-columns:1fr;}.dungeon-route{font-size:11px;}.dungeon-party,.dungeon-cds{grid-template-columns:1fr 1fr;}}
