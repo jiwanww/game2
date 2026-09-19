@@ -31,4 +31,11 @@
 .boss-bar small{font-size:11px;}
 .dungeon-cds{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0;}
 .dungeon-cds p{border:1px solid #465762;padding:18px;line-height:1.7;}
+.profile-screen .lan-agent-info{margin:20px 0;}
+.secret-code{margin:24px 0;padding:16px;border:1px solid #536a7a;border-radius:6px;}
+.secret-code summary{cursor:pointer;}
+.secret-code input{max-width:100%;width:340px;}
+.unlock-rewards{margin:22px 0;padding:18px;border:1px solid #6a9e94;background:#182e35;}
+.lan-home>button{margin:6px 6px 6px 0;}
+.lan-agent-list button:disabled,.agent-card:disabled{opacity:.42;cursor:not-allowed;}
 @media(max-width:900px){.lan-modes:has(.dungeon-mode),.dungeon-rewards{grid-template-columns:1fr;}.dungeon-route{font-size:11px;}.dungeon-party,.dungeon-cds{grid-template-columns:1fr 1fr;}}

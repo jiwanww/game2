@@ -1,0 +1,13 @@
+{
+  "name": "능력전선",
+  "short_name": "능력전선",
+  "description": "요원의 능력으로 싸우는 전술 액션",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a151e",
+  "theme_color": "#0a151e",
+  "orientation": "landscape",
+  "icons": [{"src": "./assets/ability-front-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}]
+}

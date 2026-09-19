@@ -5,19 +5,35 @@ import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {dirname,join} from 'node:path';
 const root=dirname(fileURLToPath(import.meta.url));
-export function tunnelURL(text){return text.match(/https:\/\/[a-z0-9]+(?:-[a-z0-9]+)*\.trycloudflare\.com\b/)?.[0]||null;}
+export function tunnelURL(text){return text.match(/https:\/\/[a-z0-9]+(?:-[a-z0-9]+)*\.trycloudflare\.com(?![a-zA-Z0-9.-])/)?.[0]||null;}
 export function verify(bytes,hash){return createHash('sha256').update(bytes).digest('hex')===hash;}
-export async function startTunnel({port,setPublicOrigin,onURL=()=>{},runtimeDir=join(root,'runtime')}={}){
+export function waitForTunnel(child,{setPublicOrigin,onURL=()=>{},onExit=()=>{},timeoutMs=90000,signal}={}){
+ let settled=false,ready=false,stopped=false,buffer='',timer;
+ const stop=()=>{if(stopped)return;stopped=true;clearTimeout(timer);child.kill();};
+ return new Promise((resolve,reject)=>{
+  const fail=error=>{if(!settled){settled=true;stop();reject(error);}else if(ready){ready=false;stop();onExit(error);}};
+  timer=setTimeout(()=>fail(Error('초대 주소 생성 시간이 초과되었습니다. 인터넷 연결을 확인하세요.')),timeoutMs);
+  const log=chunk=>{buffer=(buffer+chunk.toString()).slice(-12000);const url=tunnelURL(buffer);
+   if(url&&/Registered tunnel connection/.test(buffer)&&!settled){
+    try{setPublicOrigin(url);onURL(url);settled=true;ready=true;clearTimeout(timer);resolve({url,stop});}catch(error){fail(error);}
+   }
+  };
+  child.stdout.on('data',log);child.stderr.on('data',log);child.on('error',fail);
+  child.on('exit',code=>{if(!settled)fail(Error('인터넷 연결이 종료되었습니다.'+(code?' 코드 '+code:'')));else if(ready){ready=false;clearTimeout(timer);onExit(stopped?null:Error('인터넷 초대 연결이 종료되었습니다. 다시 시작하세요.'));}});
+  if(signal){if(signal.aborted)fail(Error('인터넷 초대가 취소되었습니다.'));else signal.addEventListener('abort',()=>fail(Error('인터넷 초대가 취소되었습니다.')),{once:true});}
+ });
+}
+export async function startTunnel({port,setPublicOrigin,onURL=()=>{},onExit=()=>{},signal,runtimeDir=join(root,'runtime')}={}){
  if(process.platform!=='win32'||process.arch!=='x64')throw Error('인터넷 초대 기능은 Windows 64비트에서 사용할 수 있습니다.');
- if(!Number.isInteger(port)||port<1||port>65535)throw Error('게임 서버 포트를 확인할 수 없습니다.');
+ if(!Number.isInteger(port)||port<1||port>65535)throw Error('게임 서버 포트를 확인할 수 없습니다.');signal?.throwIfAborted();
  await mkdir(runtimeDir,{recursive:true});
  const version='2026.9.1',hash='2837888cc0f5d58f15b6dc478376de90b4d3ba5241c7947455d1e0a0df429712';
  const exe=join(runtimeDir,'cloudflared-'+version+'.exe');let bytes;try{bytes=await readFile(exe);}catch{}
- if(!bytes||!verify(bytes,hash)){const res=await fetch(`https://github.com/cloudflare/cloudflared/releases/download/${version}/cloudflared-windows-amd64.exe`,{signal:AbortSignal.timeout(180000)});if(!res.ok)throw Error('인터넷 연결 도구 다운로드 실패: '+res.status);bytes=Buffer.from(await res.arrayBuffer());if(!verify(bytes,hash))throw Error('다운로드 검증 실패. 다시 실행하세요.');await writeFile(exe+'.tmp',bytes);await rename(exe+'.tmp',exe);}
+ if(!bytes||!verify(bytes,hash)){const timeout=AbortSignal.timeout(180000);const res=await fetch(`https://github.com/cloudflare/cloudflared/releases/download/${version}/cloudflared-windows-amd64.exe`,{signal:signal?AbortSignal.any([signal,timeout]):timeout});if(!res.ok)throw Error('인터넷 연결 도구 다운로드 실패: '+res.status);bytes=Buffer.from(await res.arrayBuffer());if(!verify(bytes,hash))throw Error('다운로드 검증 실패. 다시 실행하세요.');await writeFile(exe+'.tmp',bytes);await rename(exe+'.tmp',exe);}
  const config=join(runtimeDir,'tunnel-config.yml');await writeFile(config,'{}\n');
+ signal?.throwIfAborted();
  const child=spawn(exe,['tunnel','--config',config,'--url',`http://127.0.0.1:${port}`,'--protocol','http2','--no-autoupdate'],{cwd:runtimeDir,stdio:['ignore','pipe','pipe']});
- let settled=false,buffer='';let timer;const stop=()=>{clearTimeout(timer);child.kill();};
- return await new Promise((resolve,reject)=>{const fail=error=>{if(!settled){settled=true;stop();reject(error);}};timer=setTimeout(()=>fail(Error('초대 주소 생성 시간이 초과되었습니다. 인터넷 연결을 확인하세요.')),90000);const log=chunk=>{buffer=(buffer+chunk.toString()).slice(-12000);const url=tunnelURL(buffer);if(url&&!settled){settled=true;clearTimeout(timer);try{setPublicOrigin(url);onURL(url);resolve({url,stop});}catch(error){stop();reject(error);}}};child.stdout.on('data',log);child.stderr.on('data',log);child.on('error',fail);child.on('exit',code=>{if(!settled)fail(Error('인터넷 연결이 종료되었습니다.'+(code?' 코드 '+code:'')));});});
+ return waitForTunnel(child,{setPublicOrigin,onURL,onExit,signal});
 }
 async function main(){
  if(process.platform!=='win32'||process.arch!=='x64')throw Error('이 인터넷 실행기는 Windows 64비트용입니다.');

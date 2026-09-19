@@ -1,5 +1,5 @@
 {
- "name":"ability-front","productName":"Ability Front","version":"0.7.1-beta.1","description":"능력전선 · 전술 액션과 격리 연구소 던전","author":"Ability Front","private":true,"type":"module","main":"apps/desktop/main.cjs",
+ "name":"ability-front","productName":"Ability Front","version":"0.7.2-beta.1","description":"능력전선 · 전술 액션과 격리 연구소 던전","author":"Ability Front","private":true,"type":"module","main":"apps/desktop/main.cjs",
  "scripts":{"start":"node server.mjs","test":"node --test tests/*.test.mjs","app:prepare":"node apps/tools/prepare.mjs","desktop":"npm run app:prepare && electron .","app:windows":"npm run app:prepare && electron-builder --config apps/electron-builder.cjs --win nsis --x64 --publish never","mobile:android":"node apps/tools/mobile.mjs android","mobile:ios":"node apps/tools/mobile.mjs ios","mobile:android:open":"cap open android","mobile:ios:open":"cap open ios","mobile:android:debug":"node apps/tools/android-build.mjs debug","mobile:android:release":"node apps/tools/android-build.mjs release"},
  "dependencies":{"electron-updater":"6.8.9","@capacitor/core":"8.5.2","@capacitor/android":"8.5.2","@capacitor/ios":"8.5.2"},
  "devDependencies":{"electron":"44.4.2","electron-builder":"26.15.3","@capacitor/cli":"8.5.2"},"engines":{"node":">=22"}

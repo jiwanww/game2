@@ -13,7 +13,7 @@ export class DungeonEngine extends Simulation {
  constructor(room){
   super({...room,options:{...room.options,map:'duel',rounds:12,unlimited:false}});
   this.room=room;this.room.options={...room.options,mode:'dungeon',map:'duel',rounds:12,unlimited:false};
-  this.runId=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);this.rng=seeded(room.options.seed??Math.floor(Math.random()*2**32));this.stage=1;this.difficulty='normal';this.phase='ready';this.elapsed=0;this.monsters=[];this.enemyBolts=[];this.telegraphs=[];this.zones=[];this.guardians=[];this.offers=new Map();this.votes=new Map();this.startReady=new Set();this.nextMonster=0;this.completed=new Set();this.rewardClaims=new Map();this.economy=false;this.reason='';this.won=false;this.rules.soloTeam=null;
+  this.runId=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);this.rng=seeded(room.options.seed??Math.floor(Math.random()*2**32));this.stage=1;this.difficulty='normal';this.phase='ready';this.elapsed=0;this.monsters=[];this.enemyBolts=[];this.telegraphs=[];this.zones=[];this.guardians=[];this.offers=new Map();this.votes=new Map();this.startReady=new Set();this.nextMonster=0;this.completed=new Set();this.rewardClaims=new Map();this.bonusParticipants=new Set();this.bossParticipants=new Set();this.economy=false;this.reason='';this.won=false;this.rules.soloTeam=null;
   for(const a of this.actors.values()){a.team='A';this.room.players.get(a.id).team='A';installDungeonAbilities(a,this);a.armor=a.agent.id==='cap'?15:0;a.armorType=null;a.ultPoints=0;a.ultReady=false;}
   this.enterStage(1);
  }
@@ -74,7 +74,7 @@ export class DungeonEngine extends Simulation {
  advanceIfPicked(){if(!this.alive().every(a=>this.offers.get(a.id)?.left===0))return;
   if(this.phase==='bonus'){this.enterStage(12);return;}
   if(this.stage===5){this.phase='branch';this.offers.clear();return;}
-  if(this.stage===11){this.phase='bonus';for(const a of this.alive())this.offers.set(a.id,{left:2,ids:rewardPool(a.agent.id,new Set([...a.build,...a.pendingBuild]),12,this.difficulty,this.rng).map(x=>x.id)});return;}
+  if(this.stage===11){this.phase='bonus';for(const a of this.actors.values())if(a.connected)this.bonusParticipants.add(a.id);for(const a of this.alive())this.offers.set(a.id,{left:2,ids:rewardPool(a.agent.id,new Set([...a.build,...a.pendingBuild]),12,this.difficulty,this.rng).map(x=>x.id)});return;}
   this.enterStage(this.stage+1);
  }
  clearStage(){
@@ -88,7 +88,7 @@ export class DungeonEngine extends Simulation {
   if(this.stage===12){this.finish(true,'프로토타입 ZERO 격리 완료');return;}
   this.phase='reward';for(const a of this.alive())this.offers.set(a.id,{left:1,ids:rewardPool(a.agent.id,new Set([...a.build,...a.pendingBuild]),this.stage,this.difficulty,this.rng).map(x=>x.id)});
  }
- finish(won,reason){if(this.phase==='done')return;this.won=won;this.reason=reason;this.phase='done';this.rules.phase='done';this.enemyBolts=[];this.telegraphs=[];this.zones=[];this.guardians=[];for(const a of this.actors.values()){a.keys={};a.tasks=[];a.cast=null;a.build.clear();a.pendingBuild=[];a.ultPoints=0;a.ultReady=false;a.ult=0;a.transformed=false;a.rage=0;a.ancestor=false;a.ancestorUnlocked=false;a.energy=0;a.temporaryShield=0;}this.offers.clear();this.history=[];}
+ finish(won,reason){if(this.phase==='done')return;if(won)for(const a of this.actors.values())if(a.connected)this.bossParticipants.add(a.id);this.won=won;this.reason=reason;this.phase='done';this.rules.phase='done';this.enemyBolts=[];this.telegraphs=[];this.zones=[];this.guardians=[];for(const a of this.actors.values()){a.keys={};a.tasks=[];a.cast=null;a.build.clear();a.pendingBuild=[];a.ultPoints=0;a.ultReady=false;a.ult=0;a.transformed=false;a.rage=0;a.ancestor=false;a.ancestorUnlocked=false;a.energy=0;a.temporaryShield=0;}this.offers.clear();this.history=[];}
  disconnect(id){super.disconnect(id);if(!this.alive().length)this.finish(false,'생존 플레이어가 없습니다.');else if(this.phase==='branch')this.resolveVotes();else if(['reward','bonus'].includes(this.phase))this.advanceIfPicked();else if(this.phase==='ready'&&this.alive().every(a=>this.startReady.has(a.id))){this.phase='combat';this.rules.phase='live';}}
  status(b,status,a){if(!b?.active||!status)return;for(const k of ['root','stun','slow','deaf','dot'])if(status[k]>0){let n=status[k];if(b.boss&&['stun','root'].includes(k)){if((b.ccImmune||0)>this.time)continue;n=Math.min(.3,n);b.ccImmune=this.time+3;}b[k]=Math.max(b[k]||0,n);}if(status.dot){b.dotDamage=status.dotDamage||2;b.dotOwner=a.id;}}
  shrink(b,damage,a){if(!b.active)return;if(b.boss){b.weakenUntil=this.time+5;return;}b.shrinkUntil=this.time+5;b.shrinkDamage=damage;b.shrinkOwner=a.id;b.h.set(.38,.98,.38).multiplyScalar(b.def.size*.5);b.mesh.scale.setScalar(b.def.size*.5);}
@@ -271,7 +271,7 @@ export class DungeonEngine extends Simulation {
   s.threats=this.telegraphs.filter(q=>q.source.active).map(q=>({p:q.p.toArray(),r:q.r,left:q.left,total:q.total,kind:q.kind,dir:q.dir,length:q.length}));
   s.zones=this.zones.map(z=>({p:z.p.toArray(),r:z.r,life:z.life,kind:z.kind}));s.guardians=this.guardians.map(g=>({p:g.p.toArray(),life:g.life}));
   s.projectiles.push(...this.enemyBolts.map(p=>({pos:p.p.toArray(),radius:.16,color:p.color,kind:'enemy'})));
-  for(const p of s.players){const a=this.actors.get(p.id);Object.assign(p,{build:[...a.build],pendingBuild:[...a.pendingBuild],offer:this.offers.get(a.id)||null,rerolls:a.rerolls,dashCooldown:a.dashCooldown,temporaryShield:a.temporaryShield,entryGuard:a.entryGuard,unlocked:this.rewardClaims.get(a.id)||null,bank:{base:[...a.bank.base],extra:[0,0,0],timers:[...a.bank.timers],capacity:[0,1,2].map(i=>a.bank.capacity(i))}});}
+  for(const p of s.players){const a=this.actors.get(p.id);Object.assign(p,{build:[...a.build],pendingBuild:[...a.pendingBuild],offer:this.offers.get(a.id)||null,rerolls:a.rerolls,dashCooldown:a.dashCooldown,temporaryShield:a.temporaryShield,entryGuard:a.entryGuard,unlocked:this.rewardClaims.get(a.id)||null,progress:{bonus:this.bonusParticipants.has(a.id),boss:this.bossParticipants.has(a.id)},bank:{base:[...a.bank.base],extra:[0,0,0],timers:[...a.bank.timers],capacity:[0,1,2].map(i=>a.bank.capacity(i))}});}
   return s;
  }
 }

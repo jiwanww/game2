@@ -32,7 +32,7 @@
 
 제작자 PC에 Node.js 22 이상을 설치합니다. 플레이어 PC에는 필요하지 않습니다.
 
-이 프로젝트는 GitHub 저장소 `jiwanww/game`의 고정 Release `latest`를 업데이트 주소로 사용하도록 이미 연결되어 있습니다. 빈 값이면 앱은 업데이트가 구성되지 않았다고 안내하고, 게임은 그대로 실행됩니다. `publisherName`은 정식 코드 서명 인증서의 발급 대상 이름과 맞춥니다. 서명은 electron-builder의 `CSC_LINK` / `CSC_KEY_PASSWORD` 환경 설정 등으로 연결하며 비밀 키나 비밀번호를 게임 소스에 저장하지 않습니다.
+이 프로젝트는 GitHub 저장소 `jiwanww/game2`의 고정 Release `latest`를 업데이트 주소로 사용하도록 이미 연결되어 있습니다. 빈 값이면 앱은 업데이트가 구성되지 않았다고 안내하고, 게임은 그대로 실행됩니다. `publisherName`은 정식 코드 서명 인증서의 발급 대상 이름과 맞춥니다. 서명은 electron-builder의 `CSC_LINK` / `CSC_KEY_PASSWORD` 환경 설정 등으로 연결하며 비밀 키나 비밀번호를 게임 소스에 저장하지 않습니다.
 
 소스 압축을 푼 폴더에서 `BUILD-WINDOWS-APP.bat`을 실행하거나 다음 명령을 실행합니다.
 

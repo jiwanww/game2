@@ -13,3 +13,5 @@ android/**/build/
 *.pem
 ios/App/App/public/
 ios/App/DerivedData/
+OWNER-CODE*
+private-owner*
