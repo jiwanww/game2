@@ -1,6 +1,7 @@
 import {ProfileStore,unlockedAgents,rewardCount} from './profile.js';
 import {profileScreen} from './profile-ui.js';
 import {nativeMobile,savedServer,serverOrigin} from './platform.js';
+import {defaultMatchServer} from './online-server.js';
 import {makeInviteCode,readInviteCode} from './invite-code.js';
 import {DungeonEngine} from './dungeon-engine.js';
 import {dungeonMenu,dungeonLobby,receiveDungeon,dungeonHud,dungeonOverlay,dungeonFrame} from './dungeon-client.js';
@@ -15,7 +16,7 @@ import {World,humanoid,mat} from './world.js';
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function installClient(game){try{game.profile=new ProfileStore();const lobby=new Lobby(game);game.exitTraining=()=>lobby.home();lobby.home();}catch(e){game.mode='home';$('#ui').innerHTML='<main class="lan-shell"><h1>요원 기록 확인 필요</h1><p>'+esc(e.message)+'</p><p>앱 데이터를 삭제하지 말고 저장 공간을 확인하세요.</p></main>';}}
 class Lobby {
- constructor(g){this.g=g;this.base=savedServer();this.room=null;this.identity=null;this.config={map:'duel',rounds:12,unlimited:false};this.name='';this.selection='spidey';this.network=null;this.info=null;this.stream=null;}
+ constructor(g){this.g=g;this.base=savedServer()||defaultMatchServer();this.room=null;this.identity=null;this.config={map:'duel',rounds:12,unlimited:false};this.name='';this.selection='spidey';this.network=null;this.info=null;this.stream=null;}
  shell(html){this.g.mode='home';$('#ui').innerHTML=`<main class="lan-shell"><div class="lan-top"><b>능력전선 <small>ABILITY FRONT / 0.7.2 BETA</small></b><span>${this.g.touchControls?'모바일 · 터치 조작':'PC · 키보드 + 마우스'}</span></div>${html}<p id="lan-error" role="status"></p></main>`;}
  error(e){const node=$('#lan-error');if(node)node.textContent=e.message||String(e);else this.g.notify(e.message||String(e));}
  async api(path,data={}){if(this.localDungeon){if(path==='input')this.localDungeon.input(this.identity.id,data);return {room:this.room,snapshot:this.localDungeon.snapshot()};}if(['create','join','profile'].includes(path))data={...data,profile:{schema:2,unlocked:unlockedAgents(this.g.profile.read())}};if(path==='ready')await this.api('profile');const r=await fetch(this.base+'/api/'+path,{method:'POST',headers:{'Content-Type':'application/json',...(this.identity?{Authorization:'Bearer '+this.identity.token}:{})},body:JSON.stringify(data),signal:AbortSignal.timeout(8000)});const out=await r.json();if(!r.ok)throw Error(out.error||'접속을 확인하세요.');return out;}
