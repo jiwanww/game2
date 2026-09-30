@@ -1,5 +1,5 @@
 // 2D balance is deliberately independent of the legacy 3D charge economy.
-export const VERSION='0.8.0-beta.1';
+export const VERSION='0.8.0-beta.2';
 export const MODES={standard:{name:'일반전',detail:'설치 폭탄 · 공격과 수비',seconds:150},elimination:{name:'섬멸전',detail:'전멸 승리 · 연장전 초당 1 HP 감소',seconds:120},ball:{name:'어빌리티볼',detail:'2골 선승 · 5초 부활',seconds:240},big:{name:'빅 에이전트',detail:'1 대 9 · 거대 요원을 저지하세요',seconds:180}};
 const agent=(id,name,role,color,hp,speed,damage,range,reload,interval,kind,cooldowns,skills,ultCost,ball)=>({id,name,role,color,hp,speed,damage,range,reload,interval,kind,cooldowns,skills,ultCost,ball,ammo:3});
 export const ARENA_AGENTS=[
