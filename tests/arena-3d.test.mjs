@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {Arena3DEngine} from '../src/arena-3d.js';
+const players=[{id:'a',name:'A',agent:'cap',team:'A'},{id:'b',name:'B',agent:'arc',team:'B'}];
+test('3D four modes produce backward-compatible snapshots',()=>{for(const mode of ['standard','elimination','ball','big']){const g=new Arena3DEngine({mode,rounds:1},players);const s=g.snapshot();assert.equal(s.players.length,2);assert.equal(s.arcade.mode,mode);assert.ok(s.match.spike&&s.solids&&s.players[0].bank);const cover=g.physics.solids.slice(4);assert.equal(cover.filter(w=>w.destructible).length/cover.length,.8);}});
+test('3D hunters and ball players respawn five seconds after death',()=>{const g=new Arena3DEngine({mode:'ball',rounds:1},players);g.rules.phase='live';g.rules.time=120;const a=g.actors.get('a'),b=g.actors.get('b');g.hurt(b,1000,a.player);assert.equal(b.respawnAt,g.time+5);for(let i=0;i<301;i++)g.tick(1/60);assert.equal(b.dead,false);assert.equal(b.hp,b.maxHP);});
+test('3D big-agent death awards hunters, stats are increased',()=>{const g=new Arena3DEngine({mode:'big',rounds:1},players);g.rules.phase='live';g.rules.time=120;const a=g.actors.get(g.bossId),b=[...g.actors.values()].find(b=>b!==a);assert.ok(a.maxHP>=800);g.hurt(a,1e5,b.player);g.tick(.02);assert.equal(g.rules.result.team,'B');});

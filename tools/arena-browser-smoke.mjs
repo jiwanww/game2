@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+import {pathToFileURL} from 'node:url';
+import {createServer} from '../server.mjs';
+const root=process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES;
+const {chromium}=root?await import(pathToFileURL(root+'/playwright/index.mjs')):await import('playwright');
+const executablePath=process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
+const {server}=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+const url='http://127.0.0.1:'+server.address().port;
+const browser=await chromium.launch({headless:true,...(executablePath?{executablePath}:{}),args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--allow-loopback-in-peer-connection','--disable-features=WebRtcHideLocalIpsWithMdns']});
+await mkdir('dist/qa',{recursive:true});const errors=[],api=[];
+async function context(mobile=false){const ctx=await browser.newContext({viewport:mobile?{width:844,height:390}:{width:1280,height:800},hasTouch:mobile,deviceScaleFactor:1});await ctx.addInitScript(()=>{localStorage.setItem('af-dungeon-profile',JSON.stringify({schema:2,starter:'spidey',unlocked:[],allUnlocked:true,wins:[],bonusRuns:[],spentRewards:0}));});const p=await ctx.newPage();p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>{if(r.url().includes('/api/'))api.push(r.url());});return p;}
+try{
+ const host=await context(),guest=await context(true);host.on('console',m=>{if(m.type()==='error')console.log('HOST',m.text());});await host.goto(url);await host.waitForSelector('[data-dimension="2d"]');await host.screenshot({path:'dist/qa/menu.png'});
+ await host.locator('[data-dimension="2d"]').click();await host.locator('[data-agent="cap"]').click();await host.locator('#host').click();await host.locator('#invite').click();try{await host.waitForSelector('#offer-code',{timeout:16000});}catch(e){console.log('INVITE ERROR',await host.locator('body').innerText());throw e;}const offer=await host.locator('#offer-code').inputValue();
+ await guest.goto(url);await guest.locator('[data-dimension="2d"]').click();await guest.locator('[data-agent="hera"]').click();await guest.locator('#team').selectOption('B');await guest.locator('#join').click();await guest.locator('#join-offer').fill(offer);await guest.locator('#make-answer').click();await guest.waitForSelector('#join-answer');const answer=await guest.locator('#join-answer').inputValue();await host.locator('#answer-code').fill(answer);await host.locator('#accept-answer').click();
+ try{await host.waitForFunction(()=>arenaLobby.room.players.length===2,null,{timeout:15000});}catch(e){for(const p of [host,guest])console.log('PEER DIAGNOSTIC',await p.evaluate(()=>({error:document.querySelector('#arena-error')?.textContent,links:[...arenaLobby.room.links.values()].map(l=>({connection:l.pc.connectionState,ice:l.pc.iceConnectionState,channel:l.channel?.readyState,local:l.pc.localDescription?.sdp.split('\r\n').filter(l=>l.startsWith('a=candidate')),remote:l.pc.remoteDescription?.sdp.split('\r\n').filter(l=>l.startsWith('a=candidate'))}))})));throw e;}assert.equal(await guest.evaluate(()=>arenaLobby.room.players.length),2);console.log('PASS direct WebRTC offer/answer, two browser contexts');
+ await host.locator('#start').click();await guest.waitForFunction(()=>arenaLobby.state?.phase==='live');assert.equal(await guest.evaluate(()=>arenaLobby.state.players.length),10);
+ const before=await host.evaluate(()=>arenaLobby.state.players.find(p=>p.id!=='host'&&!p.bot).x);await guest.keyboard.down('KeyD');await guest.waitForTimeout(700);await guest.keyboard.up('KeyD');await guest.waitForTimeout(150);const after=await host.evaluate(()=>arenaLobby.state.players.find(p=>p.id!=='host'&&!p.bot).x);assert.ok(Math.abs(after-before)>.3);console.log('PASS guest input moves authoritative host state, ten players');
+ await guest.screenshot({path:'dist/qa/arena-mobile.png'});await guest.locator('.arena-menu').click();await guest.locator('#hud-edit').click();await guest.locator('.arena-hud-editor input').fill('75');await guest.locator('[data-save]').click();assert.equal(await guest.evaluate(()=>JSON.parse(localStorage.getItem('af-arena-hud-v1')).attack.size),75);console.log('PASS mobile HUD editable and persisted');
+ assert.equal(api.length,0);console.log('PASS no Node /api requests during new LAN game');
+ await host.close();await guest.close();
+ const third=await context();await third.goto(url);await third.locator('[data-dimension="3d"]').click();await third.locator('#bots').uncheck();await third.locator('#solo').click();await third.waitForFunction(()=>window.abilityFront?.net?.me);await third.waitForTimeout(1000);await third.screenshot({path:'dist/qa/3d-arena.png'});assert.equal(await third.evaluate(()=>abilityFront.net.state.arcade.mode),'ball');console.log('PASS 3D legacy rendering and new-mode snapshot integration');
+ assert.deepEqual(errors,[]);console.log('PASS no uncaught browser errors');
+}finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
